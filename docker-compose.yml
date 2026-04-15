@@ -1,0 +1,23 @@
+# On définit la version du format compose
+services:
+  risk-monitor:
+    # On demande à Docker de construire l'image depuis le dossier courant
+    build: .
+
+    # On donne un nom simple au conteneur
+    container_name: risk-monitor-app
+
+    # On mappe le port 8501 du conteneur vers le port 8501 de la machine
+    ports:
+      - "8501:8501"
+
+    # On charge les variables d'environnement depuis le fichier .env
+    env_file:
+      - .env
+
+    # On monte le projet local dans le conteneur pour garder les changements
+    volumes:
+      - .:/app
+
+    # On redémarre automatiquement le conteneur sauf si on l'arrête manuellement
+    restart: unless-stopped
