@@ -16,7 +16,7 @@ import argparse
 # On importe pandas pour manipuler les DataFrames
 import pandas as pd
 
-# On importe numpy pour gérer correctement les types int64, float64, bool_ dans la sérialisation JSON
+# On importe numpy pour gérer correctement les types int64, float64 et bool_
 import numpy as np
 
 # On importe load_dotenv pour lire les variables du fichier .env
@@ -38,13 +38,13 @@ load_dotenv()
 # On définit le chemin vers la base SQLite
 DB_PATH = Path("data/risk_monitor_dataset.sqlite")
 
-# On définit le chemin vers le prompt analyste
-ANALYST_PROMPT_PATH = Path("prompts/analyst_prompt_v1.txt")
+# On définit le chemin vers le prompt analyste v2
+ANALYST_PROMPT_PATH = Path("prompts/analyst_prompt_v2.txt")
 
-# On définit le chemin vers le prompt décideur
-DECISION_PROMPT_PATH = Path("prompts/decision_prompt_v1.txt")
+# On définit le chemin vers le prompt décideur v2
+DECISION_PROMPT_PATH = Path("prompts/decision_prompt_v2.txt")
 
-# On définit le modèle par défaut à partir de la variable d'environnement ou d'une valeur par défaut
+# On définit le modèle par défaut
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
 
 # On définit le prix d'entrée estimé pour gpt-5.4-mini en dollars par token
@@ -60,7 +60,7 @@ def get_connection():
     if not DB_PATH.exists():
         raise FileNotFoundError(f"Base introuvable : {DB_PATH}")
 
-    # On retourne une connexion SQLite vers la base
+    # On retourne une connexion SQLite
     return sqlite3.connect(DB_PATH)
 
 
@@ -129,7 +129,7 @@ def insert_ai_log(
 
     # On protège l'insertion
     try:
-        # On insère une nouvelle ligne dans ai_logs
+        # On insère une ligne dans ai_logs
         conn.execute(
             """
             INSERT INTO ai_logs (
@@ -168,7 +168,7 @@ def insert_ai_log(
             ),
         )
 
-        # On valide l'insertion
+        # On valide l'écriture
         conn.commit()
 
     # On ferme toujours la connexion
@@ -190,7 +190,7 @@ def get_cleaned_tables():
     finally:
         conn.close()
 
-    # On retourne les tables après nettoyage
+    # On retourne les tables nettoyées
     return clean_all_tables(raw_tables)
 
 
@@ -346,7 +346,7 @@ def build_user_context(user_id):
     # On récupère les abonnements correspondants
     subscription_df = subscriptions[subscriptions["id"].isin(subscription_ids)].copy()
 
-    # On construit le contexte final sous forme de dictionnaire
+    # On construit le contexte final
     context = {
         "reference_date": serialize_value(reference_date),
         "subscriber_summary": {
@@ -386,14 +386,14 @@ def build_user_context(user_id):
 
 # Cette fonction transforme le contexte en texte JSON lisible
 def context_to_text(context):
-    # On sérialise d'abord tout le contexte pour éviter les erreurs JSON
+    # On sérialise d'abord tout le contexte
     safe_context = serialize_value(context)
 
-    # On convertit ensuite ce contexte en texte JSON indenté
+    # On convertit ensuite ce contexte en JSON indenté
     return json.dumps(safe_context, ensure_ascii=False, indent=2)
 
 
-# Cette fonction construit un texte de fallback pour le rôle analyste
+# Cette fonction construit un texte de fallback propre pour le rôle analyste
 def build_fallback_analyst_text(context):
     # On récupère le résumé principal du subscriber
     summary = context["subscriber_summary"]
@@ -405,24 +405,24 @@ def build_fallback_analyst_text(context):
     open_complaints_received = summary.get("open_complaints_received")
     score_reasons = summary.get("score_reasons")
 
-    # On retourne un résumé simple et déterministe
+    # On retourne un texte propre sans markdown
     return (
-        "1. Résumé général\n"
-        f"- Subscriber avec score de risque {risk_score}.\n"
-        "2. Signaux d'alerte\n"
-        f"- Paiements échoués : {failed_payments}\n"
-        f"- Plaintes reçues : {complaints_received}\n"
-        f"- Plaintes ouvertes reçues : {open_complaints_received}\n"
-        "3. Éléments rassurants\n"
-        "- Résumé IA indisponible, analyse limitée aux indicateurs bruts.\n"
-        "4. Comparaison au comportement moyen visible dans les données fournies\n"
-        f"- Principaux signaux issus du scoring : {score_reasons}\n"
-        "5. Conclusion opérationnelle\n"
-        "- Vérifier le détail du profil avant toute décision."
+        "Résumé général:\n"
+        f"Le subscriber présente un score de risque de {risk_score} selon les règles actuelles.\n\n"
+        "Signaux d'alerte:\n"
+        f"• Paiements échoués : {failed_payments}\n"
+        f"• Plaintes reçues : {complaints_received}\n"
+        f"• Plaintes ouvertes reçues : {open_complaints_received}\n\n"
+        "Éléments rassurants:\n"
+        "• Résumé IA indisponible, analyse limitée aux indicateurs bruts\n\n"
+        "Comparaison au comportement moyen:\n"
+        f"Les principaux signaux visibles dans le scoring sont : {score_reasons}\n\n"
+        "Conclusion opérationnelle:\n"
+        "Vérifier le détail du profil avant toute décision finale."
     )
 
 
-# Cette fonction construit un texte de fallback pour le rôle décideur
+# Cette fonction construit un texte de fallback propre pour le rôle décideur
 def build_fallback_decision_text(context):
     # On récupère le résumé principal du subscriber
     summary = context["subscriber_summary"]
@@ -430,28 +430,28 @@ def build_fallback_decision_text(context):
     # On récupère l'action issue du moteur de règles
     action = summary.get("rule_based_action", "watch")
 
-    # On prépare un petit dictionnaire de traduction
+    # On prépare un dictionnaire de traduction
     mapping = {
         "watch": "surveiller",
         "block": "bloquer",
         "ignore": "ignorer",
     }
 
-    # On traduit l'action en français
+    # On traduit l'action
     action_fr = mapping.get(action, "surveiller")
 
-    # On retourne un texte simple et déterministe
+    # On retourne un texte propre sans markdown
     return (
-        "1. Action recommandée\n"
-        f"- {action_fr}\n"
-        "2. Niveau de confiance sur 100\n"
-        "- 55\n"
-        "3. Justification\n"
-        "- Recommandation basée sur le score de risque et les signaux bruts, sans réponse IA disponible.\n"
-        "4. Risque principal\n"
-        f"- {summary.get('score_reasons')}\n"
-        "5. Limites de la recommandation\n"
-        "- API indisponible ou clé absente, validation humaine nécessaire."
+        "Action recommandée:\n"
+        f"{action_fr}\n\n"
+        "Niveau de confiance:\n"
+        "55/100\n\n"
+        "Justification:\n"
+        "La recommandation est basée sur le score de risque et les signaux bruts, sans réponse IA disponible.\n\n"
+        "Risque principal:\n"
+        f"{summary.get('score_reasons')}\n\n"
+        "Limites de la recommandation:\n"
+        "API indisponible ou clé absente, validation humaine nécessaire."
     )
 
 
@@ -500,7 +500,7 @@ def run_ai_call(user_id, role_name, prompt_path, context, fallback_text):
     # On convertit le contexte en texte JSON
     context_text = context_to_text(context)
 
-    # On récupère un client OpenAI si une clé API existe
+    # On récupère un client OpenAI si la clé API existe
     client = get_openai_client()
 
     # Si aucun client n'est disponible, on logge un fallback puis on retourne le fallback
@@ -539,7 +539,7 @@ def run_ai_call(user_id, role_name, prompt_path, context, fallback_text):
             input=full_input,
         )
 
-        # On récupère le texte final généré par le modèle
+        # On récupère le texte final généré
         output_text = response.output_text
 
         # On extrait les informations d'usage
@@ -573,7 +573,7 @@ def run_ai_call(user_id, role_name, prompt_path, context, fallback_text):
         # On convertit l'erreur en texte
         error_message = str(e)
 
-        # On logge l'échec API
+        # On logge l'erreur
         insert_ai_log(
             user_id=user_id,
             role_name=role_name,

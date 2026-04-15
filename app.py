@@ -4,6 +4,9 @@ from pathlib import Path
 # On importe sqlite3 pour lire la base SQLite
 import sqlite3
 
+# On importe re pour nettoyer les symboles markdown résiduels
+import re
+
 # On importe pandas pour manipuler les données
 import pandas as pd
 
@@ -137,6 +140,96 @@ def traduire_raison_score(reason):
     return text
 
 
+# Cette fonction nettoie un texte IA pour supprimer les traces visibles de markdown
+def clean_ai_text_for_display(text):
+    # Si le texte est vide, on retourne une chaîne vide
+    if text is None:
+        return ""
+
+    # On convertit la valeur en texte
+    cleaned = str(text)
+
+    # On supprime les retours chariot Windows
+    cleaned = cleaned.replace("\r\n", "\n")
+
+    # On supprime les doubles astérisques du gras markdown
+    cleaned = cleaned.replace("**", "")
+
+    # On supprime les backticks
+    cleaned = cleaned.replace("`", "")
+
+    # On supprime les titres markdown de début de ligne
+    cleaned = re.sub(r"(?m)^#{1,6}\s*", "", cleaned)
+
+    # On supprime les numérotations de type 1. 2. 3. au début des lignes
+    cleaned = re.sub(r"(?m)^\d+\.\s*", "", cleaned)
+
+    # On remplace les anciennes puces markdown par une puce simple
+    cleaned = re.sub(r"(?m)^-\s*", "• ", cleaned)
+
+    # On remplace les puces de type * par une puce simple
+    cleaned = re.sub(r"(?m)^\*\s*", "• ", cleaned)
+
+    # On supprime les espaces multiples à la fin des lignes
+    cleaned = "\n".join(line.rstrip() for line in cleaned.split("\n"))
+
+    # On retourne le texte propre
+    return cleaned.strip()
+
+
+# Cette fonction affiche un texte IA de manière propre et structurée
+def render_ai_text(text, section_names):
+    # On nettoie d'abord le texte pour supprimer les vieux symboles markdown
+    cleaned = clean_ai_text_for_display(text)
+
+    # On découpe le texte en lignes
+    lines = cleaned.split("\n")
+
+    # On parcourt chaque ligne
+    for raw_line in lines:
+        # On nettoie les espaces autour de la ligne
+        line = raw_line.strip()
+
+        # Si la ligne est vide, on laisse un espace visuel
+        if line == "":
+            st.write("")
+            continue
+
+        # Si la ligne commence par une puce simple, on l'affiche telle quelle
+        if line.startswith("• "):
+            st.write(line)
+            continue
+
+        # Si la ligne contient un deux-points
+        if ":" in line:
+            # On découpe en partie gauche et partie droite
+            left, right = line.split(":", 1)
+
+            # On nettoie les deux parties
+            left = left.strip()
+            right = right.strip()
+
+            # Si la partie gauche correspond à un titre de section connu
+            if left in section_names:
+                # On affiche le titre de section en gras rendu par Streamlit
+                st.markdown(f"**{left}**")
+
+                # Si la partie droite contient déjà du texte, on l'affiche juste après
+                if right != "":
+                    st.write(right)
+
+                continue
+
+        # Si la ligne correspond exactement à un nom de section connu
+        if line.rstrip(":") in section_names:
+            # On affiche le titre proprement
+            st.markdown(f"**{line.rstrip(':')}**")
+            continue
+
+        # Sinon on affiche simplement la ligne
+        st.write(line)
+
+
 # Cette fonction charge le dataset scoré et le met en cache
 @st.cache_data
 def get_scored_data():
@@ -157,7 +250,7 @@ def get_cleaned_tables():
     # On ouvre une connexion SQLite
     conn = sqlite3.connect(DB_PATH)
 
-    # On protège la lecture dans un bloc try/finally
+    # On protège la lecture
     try:
         # On charge toutes les tables brutes
         raw_tables = load_all_tables(conn)
@@ -379,7 +472,7 @@ def show_profile_summary(row):
 
     # On affiche chaque raison sur une ligne
     for reason in reasons:
-        st.write(f"- {traduire_raison_score(reason)}")
+        st.write(f"• {traduire_raison_score(reason)}")
 
 
 # Cette fonction affiche les boutons d'action opérateur
@@ -429,7 +522,7 @@ def show_ai_section(user_id):
     st.subheader("Assistant IA")
 
     # On affiche une petite explication
-    st.caption("Les appels IA sont déclenchés uniquement à la demande pour limiter le coût et garder la traçabilité.")
+    st.caption("Les appels IA sont déclenchés à la demande pour limiter le coût et garder la traçabilité.")
 
     # On crée 2 colonnes pour les boutons de génération
     col1, col2 = st.columns(2)
@@ -459,32 +552,44 @@ def show_ai_section(user_id):
         # On affiche un titre
         st.markdown("**Résumé analyste**")
 
-        # On affiche le texte dans une zone désactivée
-        st.text_area(
-            "Résumé analyste IA",
-            value=analyst_text,
-            height=260,
-            disabled=True,
-            key=f"analyst_output_{user_id}",
+        # On affiche le texte proprement, sans zone brute
+        render_ai_text(
+            text=analyst_text,
+            section_names=[
+                "Résumé général",
+                "Signaux d'alerte",
+                "Éléments rassurants",
+                "Comparaison au comportement moyen",
+                "Conclusion opérationnelle",
+            ],
         )
 
     # Sinon on affiche un message informatif
     else:
         st.info("Aucun résumé IA généré pour le moment.")
 
+    # On ajoute une séparation légère
+    st.write("")
+
     # Si une recommandation IA existe déjà
     if decision_text:
         # On affiche un titre
         st.markdown("**Recommandation décideur**")
 
-        # On affiche le texte dans une zone désactivée
-        st.text_area(
-            "Recommandation IA",
-            value=decision_text,
-            height=220,
-            disabled=True,
-            key=f"decision_output_{user_id}",
+        # On affiche le texte proprement, sans zone brute
+        render_ai_text(
+            text=decision_text,
+            section_names=[
+                "Action recommandée",
+                "Niveau de confiance",
+                "Justification",
+                "Risque principal",
+                "Limites de la recommandation",
+            ],
         )
+
+        # On affiche un espace
+        st.write("")
 
         # On affiche un champ pour la note opérateur
         operator_note = st.text_area(
@@ -502,7 +607,7 @@ def show_ai_section(user_id):
             # On logge la décision opérateur
             log_ai_recommendation_review(
                 user_id=int(user_id),
-                ai_recommendation_text=decision_text,
+                ai_recommendation_text=clean_ai_text_for_display(decision_text),
                 operator_decision="accepted",
                 operator_note=operator_note,
             )
@@ -515,7 +620,7 @@ def show_ai_section(user_id):
             # On logge la décision opérateur
             log_ai_recommendation_review(
                 user_id=int(user_id),
-                ai_recommendation_text=decision_text,
+                ai_recommendation_text=clean_ai_text_for_display(decision_text),
                 operator_decision="rejected",
                 operator_note=operator_note,
             )
