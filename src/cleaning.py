@@ -283,44 +283,46 @@ def normalize_complaint_type(value):
 
 # Cette fonction essaie de convertir une seule valeur de date,
 # même si le format change d'une ligne à l'autre.
+# Cette fonction essaie de convertir une valeur de date qui peut avoir plusieurs formats
 def parse_mixed_datetime(value):
-    # Si la valeur est vide, on retourne NaT
-    # NaT = "Not a Time", l'équivalent d'une date manquante.
+    # Si la valeur est vide, on retourne une date manquante
     if pd.isna(value):
         return pd.NaT
 
-    # On convertit en texte et on enlève les espaces.
+    # On convertit la valeur en texte propre
     text = str(value).strip()
 
-    # Si le texte est vide ou vaut "nan", on retourne NaT.
+    # Si le texte est vide ou vaut nan, on retourne une date manquante
     if text == "" or text.lower() == "nan":
         return pd.NaT
 
-    # Si le texte contient seulement des chiffres,
-    # cela peut être un timestamp.
+    # Si la valeur est composée uniquement de chiffres
     if text.isdigit():
-        # Si longueur 10, on suppose un timestamp en secondes.
+        # Si elle contient 10 chiffres, on suppose un timestamp en secondes
         if len(text) == 10:
             parsed = pd.to_datetime(int(text), unit="s", utc=True, errors="coerce")
 
-        # Si longueur 13, on suppose un timestamp en millisecondes.
+        # Si elle contient 13 chiffres, on suppose un timestamp en millisecondes
         elif len(text) == 13:
             parsed = pd.to_datetime(int(text), unit="ms", utc=True, errors="coerce")
 
-        # Sinon, on essaie quand même de parser comme une date.
+        # Sinon on tente une conversion générique sans dayfirst
         else:
-            parsed = pd.to_datetime(text, utc=True, errors="coerce", dayfirst=True)
+            parsed = pd.to_datetime(text, utc=True, errors="coerce")
 
-    else:
-        # Si ce n'est pas seulement des chiffres,
-        # on essaie directement de convertir en date.
+    # Si le texte contient un slash, on suppose plutôt un format jour/mois/année
+    elif "/" in text:
         parsed = pd.to_datetime(text, utc=True, errors="coerce", dayfirst=True)
 
-    # Si la conversion échoue, on retourne NaT.
+    # Sinon on tente une conversion standard sans dayfirst
+    else:
+        parsed = pd.to_datetime(text, utc=True, errors="coerce")
+
+    # Si la conversion a échoué, on retourne une date manquante
     if pd.isna(parsed):
         return pd.NaT
 
-    # On enlève l'information de fuseau horaire pour garder une date simple.
+    # Si la date a un fuseau horaire, on l'enlève
     return parsed.tz_localize(None)
 
 
