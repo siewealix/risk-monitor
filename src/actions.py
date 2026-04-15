@@ -1,39 +1,34 @@
-# On importe Path depuis pathlib pour manipuler les chemins de fichiers proprement
+# On importe Path pour manipuler les chemins de fichiers proprement
 from pathlib import Path
 
-# On importe sqlite3 pour pouvoir se connecter à la base de données SQLite
+# On importe sqlite3 pour se connecter à la base SQLite
 import sqlite3
 
-# On importe pandas pour lire facilement les données SQL dans des tableaux DataFrame
+# On importe pandas pour créer des timestamps et lire des tables
 import pandas as pd
 
-# On définit le chemin vers la base de données SQLite utilisée dans le projet
+# On définit le chemin vers la base SQLite
 DB_PATH = Path("data/risk_monitor_dataset.sqlite")
 
 
-# Cette fonction sert à ouvrir une connexion vers la base de données
+# Cette fonction ouvre une connexion à la base de données
 def get_connection():
-
-    # Ici on vérifie d'abord si le fichier de base existe réellement
+    # On vérifie que la base existe bien
     if not DB_PATH.exists():
-
-        # Si le fichier n'existe pas, on arrête le programme avec une erreur claire
         raise FileNotFoundError(f"Base introuvable : {DB_PATH}")
 
-    # Si le fichier existe, on retourne une connexion SQLite vers cette base
+    # On retourne la connexion SQLite
     return sqlite3.connect(DB_PATH)
 
 
-# Cette fonction sert à créer la table operator_actions si elle n'existe pas encore
+# Cette fonction crée la table des actions opérateur si elle n'existe pas encore
 def init_actions_table():
-
-    # On ouvre une connexion à la base
+    # On ouvre une connexion
     conn = get_connection()
 
-    # On utilise try pour être sûr de fermer la connexion même s'il y a une erreur
+    # On protège les opérations dans un bloc try/finally
     try:
-
-        # On exécute une commande SQL pour créer la table operator_actions si elle n'existe pas
+        # On crée la table operator_actions si elle n'existe pas
         conn.execute("""
         CREATE TABLE IF NOT EXISTS operator_actions (
             user_id INTEGER PRIMARY KEY,
@@ -42,54 +37,46 @@ def init_actions_table():
         )
         """)
 
-        # On valide les changements dans la base
+        # On valide l'écriture
         conn.commit()
 
-    # Le bloc finally s'exécute dans tous les cas, erreur ou non
+    # On ferme toujours la connexion
     finally:
-
-        # On ferme la connexion pour libérer la ressource
         conn.close()
 
 
-# Cette fonction sert à charger toutes les actions opérateur déjà enregistrées
+# Cette fonction lit les actions opérateur déjà enregistrées
 def load_operator_actions():
-
-    # On s'assure d'abord que la table existe
+    # On s'assure que la table existe
     init_actions_table()
 
-    # On ouvre une connexion à la base
+    # On ouvre une connexion
     conn = get_connection()
 
-    # On utilise try pour garantir la fermeture de la connexion
+    # On protège la lecture
     try:
-
-        # On lit toute la table operator_actions dans un DataFrame pandas et on la retourne
+        # On retourne le contenu de la table operator_actions
         return pd.read_sql_query("SELECT * FROM operator_actions", conn)
 
-    # Ce bloc s'exécute toujours à la fin
+    # On ferme toujours la connexion
     finally:
-
-        # On ferme la connexion à la base
         conn.close()
 
 
-# Cette fonction sert à ajouter ou mettre à jour l'action opérateur d'un utilisateur
+# Cette fonction enregistre ou met à jour l'action d'un opérateur pour un subscriber
 def set_operator_action(user_id, action):
-
-    # On s'assure d'abord que la table existe
+    # On s'assure que la table existe
     init_actions_table()
 
-    # On récupère la date et l'heure actuelles sous forme de texte
+    # On prépare la date de mise à jour
     updated_at = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # On ouvre une connexion à la base
+    # On ouvre une connexion
     conn = get_connection()
 
-    # On utilise try pour sécuriser la fermeture de la connexion
+    # On protège l'écriture
     try:
-
-        # On exécute une requête SQL d'insertion dans la table
+        # On insère ou met à jour l'action opérateur
         conn.execute("""
         INSERT INTO operator_actions (user_id, operator_action, updated_at)
         VALUES (?, ?, ?)
@@ -98,51 +85,127 @@ def set_operator_action(user_id, action):
             updated_at = excluded.updated_at
         """, (int(user_id), action, updated_at))
 
-        # Explication de la requête ci-dessus :
-        # INSERT INTO ... VALUES (?, ?, ?) ajoute une nouvelle ligne
-        # les ? sont remplacés par user_id, action et updated_at
-        # ON CONFLICT(user_id) signifie :
-        # si ce user_id existe déjà dans la table, on ne crée pas une nouvelle ligne
-        # DO UPDATE SET signifie :
-        # on met simplement à jour operator_action et updated_at avec les nouvelles valeurs
-        # excluded.operator_action représente la nouvelle valeur envoyée
-        # excluded.updated_at représente la nouvelle date envoyée
-
-        # On valide les changements dans la base
+        # On valide l'écriture
         conn.commit()
 
-    # Ce bloc s'exécute toujours à la fin
+    # On ferme toujours la connexion
     finally:
-
-        # On ferme la connexion
         conn.close()
 
 
-# Cette fonction sert à supprimer l'action opérateur associée à un utilisateur
+# Cette fonction supprime l'action opérateur d'un subscriber
 def clear_operator_action(user_id):
-
     # On s'assure que la table existe
     init_actions_table()
 
-    # On ouvre une connexion à la base
+    # On ouvre une connexion
     conn = get_connection()
 
-    # On utilise try pour sécuriser la fermeture
+    # On protège la suppression
     try:
-
-        # On supprime la ligne correspondant à l'utilisateur donné
+        # On supprime la ligne correspondant à l'utilisateur
         conn.execute("DELETE FROM operator_actions WHERE user_id = ?", (int(user_id),))
 
-        # Explication :
-        # DELETE FROM operator_actions supprime dans la table operator_actions
-        # WHERE user_id = ? signifie qu'on cible seulement l'utilisateur demandé
-        # (int(user_id),) envoie la valeur réelle à la place du ?
-
-        # On valide la suppression dans la base
+        # On valide la suppression
         conn.commit()
 
-    # Ce bloc s'exécute toujours à la fin
+    # On ferme toujours la connexion
     finally:
+        conn.close()
 
-        # On ferme la connexion
+
+# Cette fonction crée la table qui journalise les retours opérateur sur les recommandations IA
+def init_ai_reviews_table():
+    # On ouvre une connexion
+    conn = get_connection()
+
+    # On protège l'écriture
+    try:
+        # On crée la table ai_recommendation_reviews si elle n'existe pas
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS ai_recommendation_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            ai_recommendation_text TEXT NOT NULL,
+            operator_decision TEXT NOT NULL,
+            operator_note TEXT,
+            created_at TEXT NOT NULL
+        )
+        """)
+
+        # On valide la création
+        conn.commit()
+
+    # On ferme toujours la connexion
+    finally:
+        conn.close()
+
+
+# Cette fonction enregistre la décision finale de l'opérateur après lecture d'une recommandation IA
+def log_ai_recommendation_review(user_id, ai_recommendation_text, operator_decision, operator_note=""):
+    # On s'assure que la table existe
+    init_ai_reviews_table()
+
+    # On prépare la date de création du log
+    created_at = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Si la note opérateur est vide ou nulle, on la transforme en chaîne vide
+    if operator_note is None:
+        operator_note = ""
+
+    # On ouvre une connexion
+    conn = get_connection()
+
+    # On protège l'insertion
+    try:
+        # On insère un nouveau log de revue opérateur
+        conn.execute("""
+        INSERT INTO ai_recommendation_reviews (
+            user_id,
+            ai_recommendation_text,
+            operator_decision,
+            operator_note,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """, (
+            int(user_id),
+            str(ai_recommendation_text),
+            str(operator_decision),
+            str(operator_note),
+            created_at
+        ))
+
+        # On valide l'insertion
+        conn.commit()
+
+    # On ferme toujours la connexion
+    finally:
+        conn.close()
+
+
+# Cette fonction charge l'historique des revues IA pour un subscriber donné
+def load_ai_recommendation_reviews(user_id):
+    # On s'assure que la table existe
+    init_ai_reviews_table()
+
+    # On ouvre une connexion
+    conn = get_connection()
+
+    # On protège la lecture
+    try:
+        # On lit les logs les plus récents pour l'utilisateur demandé
+        return pd.read_sql_query(
+            """
+            SELECT id, user_id, operator_decision, operator_note, created_at
+            FROM ai_recommendation_reviews
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            """,
+            conn,
+            params=(int(user_id),)
+        )
+
+    # On ferme toujours la connexion
+    finally:
         conn.close()
