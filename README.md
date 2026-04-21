@@ -11,29 +11,7 @@ L'objectif du projet est d'aider une équipe opérations à :
 - prendre une action opérationnelle persistante
 - s'appuyer sur une assistance IA pour obtenir un résumé du profil et une recommandation d'action
 
-Ce projet a été réalisé dans le cadre d'un cas pratique orienté data, produit et opérations, à partir d'une base SQLite volontairement imparfaite.
-
----
-
-## Contexte personnel et positionnement
-
-Je tiens à être transparent sur le contexte dans lequel ce projet a été réalisé.
-
-Je possède déjà quelques bases en Data et en IA, même si je sais qu’il me reste encore beaucoup à approfondir. Depuis le début d'année, je me forme justement pour consolider ces fondamentaux en vue de mon master et de mon alternance justement l’année prochaine dans ce domaine.Du coup, mon niveau actuel n'est donc pas celui d'un profil déjà expérimenté en data science ou en engineering IA.
-
-Compte tenu :
-- de mon niveau actuel
-- du délai du cas pratique
-- et de la volonté de livrer quelque chose que je comprends réellement
-
-j'ai fait le choix de construire une solution cohérente, exploitable, documentée, et que je suis capable d'expliquer de bout en bout.
-
-Je n'ai pas cherché à empiler des briques techniques pour impressionner artificiellement. J'ai privilégié :
-- la lisibilité
-- la cohérence
-- la reproductibilité
-- la clarté des choix
-- l'honnêteté sur les limites
+Ce projet a été réalisé dans le cadre d'un cas pratique orienté data, produit et opérations, à partir d'une base SQLite.
 
 ---
 
@@ -630,16 +608,6 @@ Aucune clé API n'est stockée en dur dans le code.
 * Jupyter Notebook
 * Docker
 
-### Pourquoi ces choix
-
-J'ai cherché un équilibre entre :
-
-* ce que je suis capable de construire proprement aujourd'hui
-* le temps disponible
-* la nécessité de livrer un projet cohérent et défendable
-
-Je voulais éviter une architecture trop lourde que je n'aurais pas été capable d'expliquer correctement.
-
 ---
 
 ## Ce que je considère comme réussi
@@ -654,56 +622,6 @@ Je considère que le projet apporte une vraie base de travail sur les points sui
 * intégration IA fonctionnelle avec logs
 * exécution via Docker
 * documentation structurée
-
----
-
-## Limites connues
-
-Je préfère être clair sur les limites du projet.
-
-### 1. Scoring
-
-Le score repose sur des règles choisies manuellement.
-Il n'est pas issu d'un modèle statistique entraîné sur des données labellisées.
-
-### 2. Reverse engineering des codes de statut
-
-Les codes numériques présents dans certaines colonnes n'ont pas été entièrement interprétés au niveau métier.
-
-### 3. IA
-
-L'assistant IA fonctionne, mais sa qualité dépend :
-
-* du contexte transmis
-* du prompt
-* du modèle utilisé
-* de la disponibilité de l'API
-
-### 4. Comparaison au comportement moyen
-
-La comparaison reste limitée à ce qui est transmis au modèle et n'est pas encore construite comme un module analytique global séparé.
-
-### 5. UX
-
-L'interface est fonctionnelle et lisible, mais peut encore être améliorée visuellement.
-
-### 6. Tests automatisés
-
-Je n'ai pas mis en place de suite de tests automatisés complète dans le temps imparti.
-
----
-
-## Pistes d'amélioration
-
-Si je poursuis ce projet, les évolutions prioritaires seraient :
-
-* enrichir l'interprétation des statuts numériques
-* améliorer la logique de comparaison aux comportements moyens
-* ajouter une détection de patterns suspects à l'échelle globale
-* enrichir la partie IA avec cache persistant et contrôle plus fin des coûts
-* améliorer l'interface et le design des vues détaillées
-* ajouter des tests automatisés
-* déployer une version publique
 
 ---
 
